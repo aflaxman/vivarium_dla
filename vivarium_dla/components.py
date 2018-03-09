@@ -1,17 +1,22 @@
 import numpy as np, pandas as pd, sklearn.neighbors
 
+def scale_and_shift(u, r):
+    return 2*r*u - r
+
 class DLA:
     configuration_defaults = {
         'lda': {
             'stickiness': 0.9,
-            'initial_position_sd': 100,
-            'step_sd': .1,
+            'initial_position_radius': 100,
+            'step_radius': .1,
             'near_radius': 1,
         }
     }
 
     def setup(self, builder):
         self.config = builder.configuration.lda
+        self.move_randomness = builder.randomness.get_stream('lda_move')
+        self.freeze_randomness = builder.randomness.get_stream('lda_freeze')
         
         columns = ['x', 'y', 'frozen']
         self.population_view = builder.population.get_view(columns)
@@ -25,8 +30,10 @@ class DLA:
         """
         pop = pd.DataFrame(index=simulant_data.index)
         
-        pop['x'] = np.random.normal(scale=self.config.initial_position_sd, size=len(pop))
-        pop['y'] = np.random.normal(scale=self.config.initial_position_sd, size=len(pop))
+        pop['x'] = scale_and_shift(self.move_randomness.get_draw(simulant_data.index),
+                                   self.config.initial_position_radius)
+        pop['y'] = scale_and_shift(self.move_randomness.get_draw(simulant_data.index),
+                                   self.config.initial_position_radius)
 
         pop['frozen'] = False
 
@@ -40,12 +47,14 @@ class DLA:
         pop = self.population_view.get(event.index)
         
         # move the not-frozen
-        pop.x += np.where(~pop.frozen, np.random.normal(scale=self.config.step_sd, size=len(pop)), 0)
-        pop.y += np.where(~pop.frozen, np.random.normal(scale=self.config.step_sd, size=len(pop)), 0)
+        pop.x += np.where(~pop.frozen, scale_and_shift(self.move_randomness.get_draw(pop.index),
+                                                       self.config.step_radius), 0)
+        pop.y += np.where(~pop.frozen, scale_and_shift(self.move_randomness.get_draw(pop.index),
+                                                       self.config.step_radius), 0)
         
         # freeze
         to_freeze = self.near_frozen(pop)
-        pop.loc[to_freeze, 'frozen'] = (np.random.normal(size=len(to_freeze)) < self.config.stickiness)
+        pop.loc[to_freeze, 'frozen'] = (self.freeze_randomness.get_draw(to_freeze) < self.config.stickiness)
         self.population_view.update(pop)
         
     def near_frozen(self, pop):
