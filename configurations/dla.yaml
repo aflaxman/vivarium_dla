@@ -4,6 +4,6 @@ configuration:
         simulation_parameters:
                 year_start: 2000
                 year_end: 2001
-                time_step: 1
+                time_step: 10
         population:
                 population_size: 10_000
