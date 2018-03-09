@@ -1,0 +1,7 @@
+input_draw_count: 10
+model_draw_count: 1
+branches:
+  - nutrition:
+        coverage: [0, 1]
+    input_data:
+        location_id: [179, 187, 435, 189]
