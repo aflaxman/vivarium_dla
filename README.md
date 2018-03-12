@@ -7,3 +7,20 @@ From http://paulbourke.net/fractals/dla/: There are a number of ways of simulati
 https://journals.aps.org/prl/pdf/10.1103/PhysRevLett.47.1400
 Witten, T.A. and Sander, L. M. and published by them in 1981, titled: "Diffusion limited aggregation, a kinetic critical phenomena" in Physical Review Letters. number 47.
 
+# Useful for testing distributed job features
+
+E.G.
+
+```
+simulate run vivarium_dla/configurations/dla.yaml -v --pdb
+```
+
+or
+
+```
+time python ceam_development/ceam_experiments/scripts/distributed_runner.py vivarium_dla/configurations/dla.yaml vivarium_dla/configurations/branches_dla.yaml
+
+[cntl-c]
+
+python ceam_development/ceam_experiments/scripts/distributed_runner.py --project proj_csu -r -o /share/scratch/users/abie/vivarium_results/dla/2018_MM_DD_ETC/
+```

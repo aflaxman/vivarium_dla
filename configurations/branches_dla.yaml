@@ -1,7 +1,12 @@
-input_draw_count: 10
+input_draw_count: 100
 model_draw_count: 1
 branches:
-  - nutrition:
-        coverage: [0, 1]
-    input_data:
-        location_id: [179, 187, 435, 189]
+  - lda:
+      stickiness: [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1]
+      initial_position_radius: [100]
+      step_radius: [2, 1, .1]
+      near_radius: [.1, 1, 2]
+      bounding_box_radius: [100, 50]
+    simulation_parameters:
+      time_step: [.1]
+
