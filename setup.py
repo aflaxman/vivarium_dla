@@ -11,6 +11,8 @@ setup(name='vivarium_dla',
           'pandas',
           'numpy',
           'scipy',
+          'matplotlib',
+          'sklearn',
       ],
       )
 

@@ -3,7 +3,7 @@ components:
                 - DLA()
 #                - SaveImage()
                 - BoundingBox()
-                - ChaosMonkey()
+#                - ChaosMonkey()
 configuration:
         simulation_parameters:
                 year_start: 2000
