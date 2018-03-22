@@ -11,7 +11,7 @@ configuration:
                 time_step: 15
         population:
                 population_size: 10_000
-        lda:
+        dla:
                 stickiness: 1
                 near_radius: 4
                 dname: /homes/abie/t/

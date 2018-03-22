@@ -5,7 +5,7 @@ def scale_and_shift(u, r):
 
 class DLA:
     configuration_defaults = {
-        'lda': {
+        'dla': {
             'stickiness': 0.9,
             'initial_position_radius': 100,
             'step_radius': .1,
@@ -14,10 +14,10 @@ class DLA:
     }
 
     def setup(self, builder):
-        self.config = builder.configuration.lda
-        self.vivarium_randomness = builder.randomness.get_stream('lda')
+        self.config = builder.configuration.dla
+        self.vivarium_randomness = builder.randomness.get_stream('dla')
         self.np_random = np.random.RandomState(seed=self.vivarium_randomness.get_seed())
-        self.freeze_randomness = builder.randomness.get_stream('lda_freeze')
+        self.freeze_randomness = builder.randomness.get_stream('dla_freeze')
         
         columns = ['x', 'y', 'frozen']
         self.population_view = builder.population.get_view(columns)
@@ -72,13 +72,13 @@ class DLA:
 
 class SaveImage:
     configuration_defaults = {
-        'lda': {
+        'dla': {
             'dname': '/tmp/',
         }
     }
 
     def setup(self, builder):
-        self.config = builder.configuration.lda
+        self.config = builder.configuration.dla
         self.randomness = builder.randomness.get_stream('save_image')
         self.seed = self.randomness.seed
         
@@ -140,13 +140,13 @@ class ChaosMonkey:
 
 class BoundingBox:
     configuration_defaults = {
-        'lda': {
+        'dla': {
             'bounding_box_radius': 100,
         }
     }
 
     def setup(self, builder):
-        self.config = builder.configuration.lda
+        self.config = builder.configuration.dla
         self.population_view = builder.population.get_view(['x', 'y'])
         builder.event.register_listener('time_step__prepare', self.on_time_step__prepare)
         
