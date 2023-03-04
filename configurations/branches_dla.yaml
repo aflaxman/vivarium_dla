@@ -2,11 +2,11 @@ random_seed_count: 2
 
 branches:
   - dla:
-      stickiness: [.1, .3, .5, .7, .9]
+      stickiness: [.5]
       initial_position_radius: [100]
-      step_radius: [2, 1, .1]
-      near_radius: [1, 2, 5]
+      step_radius: [.1]
+      near_radius: [1]
       bounding_box_radius: [100]
-    simulation_parameters:
-      time_step: [.1]
+    time:
+      step_size: [1, 5]
 

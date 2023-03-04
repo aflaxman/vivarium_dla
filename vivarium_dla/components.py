@@ -104,10 +104,10 @@ class SaveImage:
         nearest = tree.query_radius(frozen.values, r=self.config.near_radius, count_only=False)
         xx, yy = [], []
         for i, N_i in enumerate(nearest):
-            for j in N_i[:5]:
+            for j in N_i[:2]:
                 xx += [frozen.iloc[i, 0], frozen.iloc[j, 0], np.nan]
                 yy += [frozen.iloc[i, 1], frozen.iloc[j, 1], np.nan]
-        plt.plot(xx, yy, 'k-', alpha=.85)
+        plt.plot(xx, yy, 'k-', alpha=.85, linewidth=2)
 
         bnds = plt.axis()
         max_bnd = np.max(bnds)

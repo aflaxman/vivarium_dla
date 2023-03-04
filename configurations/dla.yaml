@@ -11,10 +11,11 @@ configuration:
       year: 2000
     end:
       year: 2001
-    step_size: 15
+    step_size: .05
   population:
     population_size: 10_000
   dla:
     stickiness: 1
-    near_radius: 4
+    near_radius: 1.1
+    bounding_box_radius: 1000
     dname: /share/scratch/users/abie/t/
