@@ -17,4 +17,4 @@ configuration:
   dla:
     stickiness: 1
     near_radius: 4
-    dname: /homes/abie/t/
+    dname: /share/scratch/users/abie/t/
