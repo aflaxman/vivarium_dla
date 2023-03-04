@@ -2,11 +2,13 @@ random_seed_count: 2
 
 branches:
   - dla:
-      stickiness: [.5]
+      stickiness: [1]
       initial_position_radius: [100]
       step_radius: [.1]
-      near_radius: [1]
-      bounding_box_radius: [100]
-    time:
-      step_size: [1, 5]
+      near_radius: [1.1]
+      bounding_box_radius: [1000]
+  - time:
+      step_size: [1, .05, .01]
+  - population:
+      population_size: [10_000]
 

@@ -1,9 +1,6 @@
 import numpy as np, pandas as pd, matplotlib.pyplot as plt, sklearn.neighbors
 import hashlib
 
-def scale_and_shift(u, r):
-    return 2*r*u - r
-
 class DLA:
     name = 'DLA'
     configuration_defaults = {
@@ -118,7 +115,9 @@ class SaveImage:
         plt.figtext(0, 1, f'\n    stickiness {self.config.stickiness}; '
                     + f'initial_position_radius {self.config.initial_position_radius}; '
                     + f'step_raduis {self.config.step_radius}; near_radius {self.config.near_radius}; '
-                    + f'bounding_box_radius {self.config.bounding_box_radius} seed {self.seed}\n', ha='left', va='top')
+                    + f'bounding_box_radius {self.config.bounding_box_radius} seed {self.seed}\n'
+                    + f'n_frozen {pop.frozen.sum():,.0f}\n'
+                    , ha='left', va='top')
         plt.savefig(f'{self.config.dname}/{self.config.stickiness}-'
                     + f'{self.config.initial_position_radius}-{self.config.step_radius}-'
                     + f'{self.config.near_radius}-{self.config.bounding_box_radius}-{self.seed[-5:]}.png')
@@ -141,6 +140,7 @@ class ChaosMonkey:
 
     def on_time_step(self, event):
         if self.failure:
+            # intentionally _do not_ use common randomness here
             if np.random.random() < .5:
                 assert 0, 'chaos monkey strikes'
 
