@@ -4,11 +4,11 @@ branches:
   - dla:
       stickiness: [1]
       initial_position_radius: [100]
-      step_radius: [.1]
+      step_radius: [1, .1, .01]
       near_radius: [1.1]
       bounding_box_radius: [1000]
-  - time:
-      step_size: [1, .05, .01]
-  - population:
+    time:
+      step_size: [.01]
+    population:
       population_size: [10_000]
 
