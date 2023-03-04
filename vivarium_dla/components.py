@@ -1,9 +1,11 @@
 import numpy as np, pandas as pd, matplotlib.pyplot as plt, sklearn.neighbors
+import hashlib
 
 def scale_and_shift(u, r):
     return 2*r*u - r
 
 class DLA:
+    name = 'DLA'
     configuration_defaults = {
         'dla': {
             'stickiness': 0.9,
@@ -16,7 +18,10 @@ class DLA:
     def setup(self, builder):
         self.config = builder.configuration.dla
         self.vivarium_randomness = builder.randomness.get_stream('dla')
-        self.np_random = np.random.RandomState(seed=self.vivarium_randomness.get_seed())
+
+        vivarium_seed = self.vivarium_randomness._key() # from https://github.com/ihmeuw/vivarium/blob/95ac55e4f5eb7c098d99fe073b35b73127e7ed0d/src/vivarium/framework/randomness/stream.py#L66
+        np_seed = int(hashlib.sha1(vivarium_seed.encode('utf-8')).hexdigest(), 16) % (10 ** 8)  # from https://stackoverflow.com/questions/7585307/how-to-correct-typeerror-unicode-objects-must-be-encoded-before-hashing
+        self.np_random = np.random.RandomState(seed=np_seed)
         self.freeze_randomness = builder.randomness.get_stream('dla_freeze')
         
         columns = ['x', 'y', 'frozen']
@@ -71,6 +76,7 @@ class DLA:
         return to_freeze
 
 class SaveImage:
+    name = 'SaveImage'
     configuration_defaults = {
         'dla': {
             'dname': '/tmp/',
@@ -80,8 +86,8 @@ class SaveImage:
     def setup(self, builder):
         self.config = builder.configuration.dla
         self.randomness = builder.randomness.get_stream('save_image')
-        self.seed = self.randomness.seed
-        
+        self.seed = self.randomness._key() # from https://github.com/ihmeuw/vivarium/blob/95ac55e4f5eb7c098d99fe073b35b73127e7ed0d/src/vivarium/framework/randomness/stream.py#L66
+
         columns = ['x', 'y', 'frozen']
         self.population_view = builder.population.get_view(columns)
 
@@ -115,9 +121,10 @@ class SaveImage:
                     + f'bounding_box_radius {self.config.bounding_box_radius} seed {self.seed}\n', ha='left', va='top')
         plt.savefig(f'{self.config.dname}/{self.config.stickiness}-'
                     + f'{self.config.initial_position_radius}-{self.config.step_radius}-'
-                    + f'{self.config.near_radius}-{self.config.bounding_box_radius}-{self.seed[0]}-{self.seed[1]}.png')
+                    + f'{self.config.near_radius}-{self.config.bounding_box_radius}-{self.seed[-5:]}.png')
 
 class ChaosMonkey:
+    name = 'ChaosMonkey'
     configuration_defaults = {
         'chaos_monkey': {
             'probability': .5,
@@ -139,6 +146,7 @@ class ChaosMonkey:
 
 
 class BoundingBox:
+    name = 'BoundingBox'
     configuration_defaults = {
         'dla': {
             'bounding_box_radius': 100,

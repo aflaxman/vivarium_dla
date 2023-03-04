@@ -1,17 +1,20 @@
 components:
-        - vivarium_dla.components:
-                - DLA()
-#                - SaveImage()
-                - BoundingBox()
-#                - ChaosMonkey()
+  vivarium_dla.components:
+    - DLA()
+    - SaveImage()
+    - BoundingBox()
+#    - ChaosMonkey()
+
 configuration:
-        simulation_parameters:
-                year_start: 2000
-                year_end: 2001
-                time_step: 15
-        population:
-                population_size: 10_000
-        dla:
-                stickiness: 1
-                near_radius: 4
-                dname: /homes/abie/t/
+  time:
+    start:
+      year: 2000
+    end:
+      year: 2001
+    step_size: 15
+  population:
+    population_size: 10_000
+  dla:
+    stickiness: 1
+    near_radius: 4
+    dname: /homes/abie/t/

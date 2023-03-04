@@ -12,7 +12,9 @@ setup(name='vivarium_dla',
           'numpy',
           'scipy',
           'matplotlib',
-          'sklearn',
+          'scikit-learn',
+          'vivarium',
+          'vivarium_cluster_tools',
       ],
       )
 
