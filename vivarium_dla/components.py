@@ -15,6 +15,7 @@ class DLA:
     def setup(self, builder):
         self.config = builder.configuration.dla
         self.vivarium_randomness = builder.randomness.get_stream('dla')
+        self.clock = 0
 
         vivarium_seed = self.vivarium_randomness._key() # from https://github.com/ihmeuw/vivarium/blob/95ac55e4f5eb7c098d99fe073b35b73127e7ed0d/src/vivarium/framework/randomness/stream.py#L66
         np_seed = int(hashlib.sha1(vivarium_seed.encode('utf-8')).hexdigest(), 16) % (10 ** 8)  # from https://stackoverflow.com/questions/7585307/how-to-correct-typeerror-unicode-objects-must-be-encoded-before-hashing
@@ -37,40 +38,65 @@ class DLA:
         pop['y'] = self.np_random.normal(size=len(simulant_data.index),
                                          scale=self.config.initial_position_radius)
 
-        pop['frozen'] = False
+        pop['frozen'] = np.nan
 
-        # freeze first simulant in the batch 
-        pop.iloc[0, :] = [0, 0, True]
+        # freeze first simulants in the batch
+        n_start_frozen = 10
+        for i in range(n_start_frozen):
+            pop.iloc[i, :] = [np.sin(2*np.pi*i/n_start_frozen),
+                              np.cos(2*np.pi*i/n_start_frozen),
+                              self.clock]
         
         # update the population in the model
         self.population_view.update(pop)
         
     def on_time_step(self, event):
+        self.clock += 1
+        
         pop = self.population_view.get(event.index)
         
         # move the not-frozen
-        pop.x += np.where(~pop.frozen, self.np_random.normal(size=len(pop.index),
+        pop.x += np.where(pop.frozen.isnull(), self.np_random.normal(size=len(pop.index),
                                                              scale=self.config.step_radius), 0)
-        pop.y += np.where(~pop.frozen, self.np_random.normal(size=len(pop.index),
+        pop.y += np.where(pop.frozen.isnull(), self.np_random.normal(size=len(pop.index),
                                                              scale=self.config.step_radius), 0)
         
         # freeze
-        to_freeze = self.near_frozen(pop)
-        pop.loc[to_freeze, 'frozen'] = (self.freeze_randomness.get_draw(to_freeze) < self.config.stickiness)
+        to_maybe_freeze = self.near_frozen(pop)
+        to_freeze =  (self.freeze_randomness.get_draw(to_maybe_freeze.index)
+                      < self.config.stickiness)
+        to_freeze = to_maybe_freeze[to_freeze == True]
+        pop.loc[to_freeze.index, 'frozen'] = to_freeze
+
+        # grow
+        # TODO: refactor this into a separate component
+        growth_rate = 1.001  # TODO: make this configurable
+        if self.clock < np.log(100)/np.log(growth_rate):
+            frozen = ~pop.frozen.isnull()
+            pop.loc[frozen, ['x', 'y']] *= growth_rate
+
+        # update the population in the model
         self.population_view.update(pop)
+                
         
     def near_frozen(self, pop):
-        not_frozen = pop[~pop.frozen].loc[:, ['x', 'y']]
+        not_frozen = pop[pop.frozen.isnull()].loc[:, ['x', 'y']]
         if len(not_frozen) == 0:
-            return []
+            return pd.Series()
 
-        X = pop[pop.frozen].loc[:, ['x', 'y']].values
+        frozen = pop[~pop.frozen.isnull()].loc[:, ['x', 'y']]
+        X = frozen.values
+        
         tree = sklearn.neighbors.KDTree(X, leaf_size=2)
         
         num_near = tree.query_radius(not_frozen.values, r=self.config.near_radius, count_only=True)
         to_freeze = not_frozen[(num_near > 0)].index
+        if len(to_freeze) == 0:
+            return pd.Series()
+        index_near = tree.query_radius(not_frozen.loc[to_freeze].values, r=self.config.near_radius, count_only=False)
         
-        return to_freeze
+        return pd.Series(map(lambda x:frozen.index[x[0]], # HACK: get the index of the first frozen node close to this one
+                             index_near), index=to_freeze)
 
 class SaveImage:
     name = 'SaveImage'
@@ -95,7 +121,11 @@ class SaveImage:
 
         plt.figure(figsize=(20,20))
 
-        frozen = pop[pop.frozen].loc[:, ['x', 'y']]
+        frozen = pop[~pop.frozen.isnull()].loc[:, ['x', 'y']]
+        plt.plot(pop.x, pop.y, 'k,')
+        plt.plot(frozen.x, frozen.y, '.')
+        plt.plot(pop.iloc[:10].x, pop.iloc[:10].y, 'o')
+        
         tree = sklearn.neighbors.KDTree(frozen.values, leaf_size=2)
 
         nearest = tree.query_radius(frozen.values, r=self.config.near_radius, count_only=False)
@@ -106,6 +136,13 @@ class SaveImage:
                 yy += [frozen.iloc[i, 1], frozen.iloc[j, 1], np.nan]
         plt.plot(xx, yy, 'k-', alpha=.85, linewidth=2)
 
+        for i in pop[~pop.frozen.isnull()].index:
+            j = pop.loc[i, 'frozen']
+            xx = [pop.x[i], pop.x[j]]
+            yy = [pop.y[i], pop.y[j]]
+            plt.plot(xx, yy, 'b-', alpha=.85, linewidth=1)
+            
+        
         bnds = plt.axis()
         max_bnd = np.max(bnds)
         plt.axis(xmin=-max_bnd, xmax=max_bnd, ymin=-max_bnd, ymax=max_bnd)
@@ -118,7 +155,8 @@ class SaveImage:
                     + f'bounding_box_radius {self.config.bounding_box_radius} seed {self.seed}\n'
                     + f'n_frozen {pop.frozen.sum():,.0f}\n'
                     , ha='left', va='top')
-        plt.savefig(f'{self.config.dname}/{self.config.stickiness}-'
+        import datetime
+        plt.savefig(f'{self.config.dname}/{datetime.datetime.today().strftime("%Y%m%d")}{self.config.stickiness}-'
                     + f'{self.config.initial_position_radius}-{self.config.step_radius}-'
                     + f'{self.config.near_radius}-{self.config.bounding_box_radius}-{self.seed[-5:]}.png')
 
