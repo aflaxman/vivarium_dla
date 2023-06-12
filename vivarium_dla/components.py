@@ -9,6 +9,7 @@ class DLA:
             'initial_position_radius': 100,
             'step_radius': .1,
             'near_radius': 1,
+            'n_start_frozen':1,
         }
     }
 
@@ -41,13 +42,13 @@ class DLA:
         pop['frozen'] = np.nan
 
         # freeze first simulants in the batch
-        n_start_frozen = 10
-        self.start_radius = 1
+        self.start_radius = 0
         self.growth_rate = 1.001  # TODO: make this configurable
-        for i in range(n_start_frozen):
-            pop.iloc[i, :] = [self.start_radius * np.sin(2*np.pi*i/n_start_frozen),
-                              self.start_radius * np.cos(2*np.pi*i/n_start_frozen),
-                              (i+1)%n_start_frozen]
+        self.shift_rate = 0.0
+        for i in range(self.config.n_start_frozen):
+            pop.iloc[i, :] = [self.start_radius * np.sin(2*np.pi*i/self.config.n_start_frozen),
+                              self.start_radius * np.cos(2*np.pi*i/self.config.n_start_frozen),
+                              (i+1)%self.config.n_start_frozen]
         
         # update the population in the model
         self.population_view.update(pop)
@@ -72,10 +73,21 @@ class DLA:
 
         # grow
         # TODO: refactor this into a separate component
-        if self.clock*np.log(self.growth_rate) < np.log(self.config.initial_position_radius/10 / self.start_radius):
+        if self.clock*np.log(self.growth_rate) < np.log(self.config.initial_position_radius/10 / (self.start_radius+self.config.step_radius)):
             frozen = ~pop.frozen.isnull()
             pop.loc[frozen, ['x', 'y']] *= self.growth_rate
 
+            pop.loc[frozen, 'x'] += self.shift_rate
+
+        else:
+            # shrink
+            #import pdb; pdb.set_trace()
+            non_frozen = pop.frozen.isnull()
+            pop.loc[non_frozen, ['x', 'y']] /= self.growth_rate
+            
+            
+
+            
         # update the population in the model
         self.population_view.update(pop)
                 
@@ -123,19 +135,18 @@ class SaveImage:
         plt.figure(figsize=(20,20))
 
         frozen = pop[~pop.frozen.isnull()].loc[:, ['x', 'y']]
-        plt.plot(pop.x, pop.y, 'k,')
-        plt.plot(frozen.x, frozen.y, '.')
-        plt.plot(pop.iloc[:10].x, pop.iloc[:10].y, 'o')
+        #plt.plot(frozen.x, frozen.y, '.')
+        plt.plot(pop.iloc[:self.config.n_start_frozen].x, pop.iloc[:self.config.n_start_frozen].y, 'o')
         
         tree = sklearn.neighbors.KDTree(frozen.values, leaf_size=2)
 
         nearest = tree.query_radius(frozen.values, r=self.config.near_radius, count_only=False)
         xx, yy = [], []
-        for i, N_i in enumerate(nearest):
-            for j in N_i[:2]:
-                xx += [frozen.iloc[i, 0], frozen.iloc[j, 0], np.nan]
-                yy += [frozen.iloc[i, 1], frozen.iloc[j, 1], np.nan]
-        plt.plot(xx, yy, 'k-', alpha=.85, linewidth=2)
+        #for i, N_i in enumerate(nearest):
+        #    for j in N_i[:2]:
+        #        xx += [frozen.iloc[i, 0], frozen.iloc[j, 0], np.nan]
+        #        yy += [frozen.iloc[i, 1], frozen.iloc[j, 1], np.nan]
+        #plt.plot(xx, yy, 'k-', alpha=.85, linewidth=2)
 
         for i in pop[~pop.frozen.isnull()].index:
             j = pop.loc[i, 'frozen']
@@ -146,6 +157,7 @@ class SaveImage:
         
         bnds = plt.axis()
         max_bnd = np.max(bnds)
+        plt.plot(pop.x, pop.y, 'k,')
         plt.axis(xmin=-max_bnd, xmax=max_bnd, ymin=-max_bnd, ymax=max_bnd)
 
         plt.axis('off')
