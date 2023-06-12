@@ -42,10 +42,12 @@ class DLA:
 
         # freeze first simulants in the batch
         n_start_frozen = 10
+        self.start_radius = 1
+        self.growth_rate = 1.001  # TODO: make this configurable
         for i in range(n_start_frozen):
-            pop.iloc[i, :] = [np.sin(2*np.pi*i/n_start_frozen),
-                              np.cos(2*np.pi*i/n_start_frozen),
-                              self.clock]
+            pop.iloc[i, :] = [self.start_radius * np.sin(2*np.pi*i/n_start_frozen),
+                              self.start_radius * np.cos(2*np.pi*i/n_start_frozen),
+                              (i+1)%n_start_frozen]
         
         # update the population in the model
         self.population_view.update(pop)
@@ -70,10 +72,9 @@ class DLA:
 
         # grow
         # TODO: refactor this into a separate component
-        growth_rate = 1.001  # TODO: make this configurable
-        if self.clock < np.log(100)/np.log(growth_rate):
+        if self.clock*np.log(self.growth_rate) < np.log(self.config.initial_position_radius/10 / self.start_radius):
             frozen = ~pop.frozen.isnull()
-            pop.loc[frozen, ['x', 'y']] *= growth_rate
+            pop.loc[frozen, ['x', 'y']] *= self.growth_rate
 
         # update the population in the model
         self.population_view.update(pop)
