@@ -23,7 +23,7 @@ class DLA:
         self.np_random = np.random.RandomState(seed=np_seed)
         self.freeze_randomness = builder.randomness.get_stream('dla_freeze')
         
-        columns = ['x', 'y', 'frozen']
+        columns = ['x', 'y', 'z', 'frozen']
         self.population_view = builder.population.get_view(columns)
         builder.population.initializes_simulants(self.on_initialize_simulants, creates_columns=columns)
         
@@ -38,7 +38,7 @@ class DLA:
                                          scale=self.config.initial_position_radius)
         pop['y'] = self.np_random.normal(size=len(simulant_data.index),
                                          scale=self.config.initial_position_radius)
-
+        pop['z'] = 0.0
         pop['frozen'] = np.nan
 
         # freeze first simulants in the batch
@@ -48,6 +48,7 @@ class DLA:
         for i in range(self.config.n_start_frozen):
             pop.iloc[i, :] = [self.start_radius * np.sin(2*np.pi*i/self.config.n_start_frozen),
                               self.start_radius * np.cos(2*np.pi*i/self.config.n_start_frozen),
+                              0,
                               (i+1)%self.config.n_start_frozen]
         
         # update the population in the model
@@ -71,6 +72,10 @@ class DLA:
         to_freeze = to_maybe_freeze[to_freeze == True]
         pop.loc[to_freeze.index, 'frozen'] = to_freeze
 
+        # lift
+        non_frozen = pop.frozen.isnull()
+        pop.loc[non_frozen, 'z'] += .005
+
         # grow
         # TODO: refactor this into a separate component
         if self.clock*np.log(self.growth_rate) < np.log(self.config.initial_position_radius/10 / (self.start_radius+self.config.step_radius)):
@@ -79,12 +84,18 @@ class DLA:
 
             pop.loc[frozen, 'x'] += self.shift_rate
 
-        else:
+        elif np.isfinite(self.clock):
             # shrink
             #import pdb; pdb.set_trace()
-            non_frozen = pop.frozen.isnull()
-            pop.loc[non_frozen, ['x', 'y']] /= self.growth_rate
-            
+            std_frozen = pop.loc[~non_frozen, ['x', 'y']].std()
+            shrink_factor = np.exp(-(self.clock*np.log(self.growth_rate) - np.log(self.config.initial_position_radius/10
+                                                                                  / (self.start_radius+self.config.step_radius))))
+            shrink_factor = .5
+            pop.loc[0, 'z'] = pop.loc[non_frozen, 'z'].mean()
+            pop.loc[0, ['x', 'y']] = (0,0)
+            pop.loc[0, 'frozen'] = 0
+            pop.loc[non_frozen, ['x', 'y']] =self.np_random.normal(size=(sum(non_frozen), 2), scale=std_frozen*shrink_factor)
+            self.clock = np.nan
             
 
             
@@ -93,11 +104,11 @@ class DLA:
                 
         
     def near_frozen(self, pop):
-        not_frozen = pop[pop.frozen.isnull()].loc[:, ['x', 'y']]
+        not_frozen = pop[pop.frozen.isnull()].loc[:, ['x', 'y', 'z']]
         if len(not_frozen) == 0:
             return pd.Series()
 
-        frozen = pop[~pop.frozen.isnull()].loc[:, ['x', 'y']]
+        frozen = pop[~pop.frozen.isnull()].loc[:, ['x', 'y', 'z']]
         X = frozen.values
         
         tree = sklearn.neighbors.KDTree(X, leaf_size=2)
@@ -124,7 +135,7 @@ class SaveImage:
         self.randomness = builder.randomness.get_stream('save_image')
         self.seed = self.randomness._key() # from https://github.com/ihmeuw/vivarium/blob/95ac55e4f5eb7c098d99fe073b35b73127e7ed0d/src/vivarium/framework/randomness/stream.py#L66
 
-        columns = ['x', 'y', 'frozen']
+        columns = ['x', 'y', 'z', 'frozen']
         self.population_view = builder.population.get_view(columns)
 
         builder.event.register_listener('simulation_end', self.on_simulation_end)
@@ -134,7 +145,7 @@ class SaveImage:
 
         plt.figure(figsize=(20,20))
 
-        frozen = pop[~pop.frozen.isnull()].loc[:, ['x', 'y']]
+        frozen = pop[~pop.frozen.isnull()].loc[:, ['x', 'y', 'z']]
         #plt.plot(frozen.x, frozen.y, '.')
         plt.plot(pop.iloc[:self.config.n_start_frozen].x, pop.iloc[:self.config.n_start_frozen].y, 'o')
         
@@ -148,11 +159,16 @@ class SaveImage:
         #        yy += [frozen.iloc[i, 1], frozen.iloc[j, 1], np.nan]
         #plt.plot(xx, yy, 'k-', alpha=.85, linewidth=2)
 
+        mean_frozen_z = frozen.z.mean()
         for i in pop[~pop.frozen.isnull()].index:
             j = pop.loc[i, 'frozen']
             xx = [pop.x[i], pop.x[j]]
             yy = [pop.y[i], pop.y[j]]
-            plt.plot(xx, yy, 'b-', alpha=.85, linewidth=1)
+            if pop.z[i] > mean_frozen_z:
+                color = 'b'
+            else:
+                color = 'r'
+            plt.plot(xx, yy, '-', alpha=.85, linewidth=1, color=color)
             
         
         bnds = plt.axis()
