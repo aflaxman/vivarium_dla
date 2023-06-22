@@ -118,9 +118,11 @@ class SaveImage:
                     + f'bounding_box_radius {self.config.bounding_box_radius} seed {self.seed}\n'
                     + f'n_frozen {pop.frozen.sum():,.0f}\n'
                     , ha='left', va='top')
-        plt.savefig(f'{self.config.dname}/{self.config.stickiness}-'
+        fname = (f'{self.config.dname}/{self.config.stickiness}-'
                     + f'{self.config.initial_position_radius}-{self.config.step_radius}-'
                     + f'{self.config.near_radius}-{self.config.bounding_box_radius}-{self.seed[-5:]}.png')
+        plt.savefig(fname)
+        print(f'Visual results saved as {fname}')
 
 class ChaosMonkey:
     name = 'ChaosMonkey'
