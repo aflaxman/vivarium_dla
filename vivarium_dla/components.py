@@ -9,8 +9,8 @@ class DLA:
             'initial_position_radius': 50,
             'step_radius_rate': 5,
             'near_radius': 1,
-            'n_start_frozen':1,
-            'start_radius':3,
+            'n_start_frozen':3,
+            'start_radius':1,
             'growth_rate':.4,  # percent per day
             'growth_stop_time': '2020-07-01'
         }
@@ -43,7 +43,7 @@ class DLA:
                                          scale=self.config.initial_position_radius)
         pop['y'] = self.np_random.normal(size=len(simulant_data.index),
                                          scale=self.config.initial_position_radius)
-        pop['z'] = self.np_random.uniform(size=(len(simulant_data.index)), low=0, high=25)
+        pop['z'] = self.np_random.uniform(size=(len(simulant_data.index)), low=0, high=3)
         pop['frozen'] = np.nan
 
         # freeze first simulants in the batch
@@ -96,7 +96,7 @@ class DLA:
     def near_frozen(self, pop):
         not_frozen = pop[pop.frozen.isnull()].loc[:, ['x', 'y', 'z']]
         if len(not_frozen) == 0:
-            return pd.Series()
+            return pd.Series(dtype='float64')
 
         frozen = pop[~pop.frozen.isnull()].loc[:, ['x', 'y', 'z']]
         X = frozen.values
@@ -106,7 +106,7 @@ class DLA:
         num_near = tree.query_radius(not_frozen.values, r=self.config.near_radius, count_only=True)
         to_freeze = not_frozen[(num_near > 0)].index
         if len(to_freeze) == 0:
-            return pd.Series()
+            return pd.Series(dtype='float64')
         index_near = tree.query_radius(not_frozen.loc[to_freeze].values, r=self.config.near_radius, count_only=False)
         
         return pd.Series(map(lambda x:frozen.index[x[0]], # HACK: get the index of the first frozen node close to this one
