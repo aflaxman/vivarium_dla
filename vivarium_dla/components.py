@@ -7,17 +7,20 @@ class DLA:
         'dla': {
             'stickiness': 0.9,
             'initial_position_radius': 100,
-            'step_radius': .1,
+            'step_radius_rate': 10,
             'near_radius': 1,
-            'n_start_frozen':1,
+            'n_start_frozen':5,
             'start_radius':1,
-            'growth_rate':.1,  # percent per day
+            'growth_rate':.4,  # percent per day
+            'growth_stop_time': '2020-05-01'
         }
     }
 
     def setup(self, builder):
         self.config = builder.configuration.dla
         self.growth_factor = (1 + self.config.growth_rate / 100)**builder.configuration.time.step_size
+        self.growth_stop_time = pd.Timestamp(self.config.growth_stop_time)
+        self.step_radius = self.config.step_radius_rate * builder.configuration.time.step_size
         self.vivarium_randomness = builder.randomness.get_stream('dla')
 
         vivarium_seed = self.vivarium_randomness._key() # from https://github.com/ihmeuw/vivarium/blob/95ac55e4f5eb7c098d99fe073b35b73127e7ed0d/src/vivarium/framework/randomness/stream.py#L66
@@ -58,9 +61,9 @@ class DLA:
         
         # move the not-frozen
         pop.x += np.where(pop.frozen.isnull(), self.np_random.normal(size=len(pop.index),
-                                                             scale=self.config.step_radius), 0)
+                                                             scale=self.step_radius), 0)
         pop.y += np.where(pop.frozen.isnull(), self.np_random.normal(size=len(pop.index),
-                                                             scale=self.config.step_radius), 0)
+                                                             scale=self.step_radius), 0)
         
         # freeze
         to_maybe_freeze = self.near_frozen(pop)
@@ -79,8 +82,9 @@ class DLA:
 
         # grow
         # TODO: refactor this into a separate component
-        frozen = ~pop.frozen.isnull()
-        pop.loc[frozen, ['x', 'y']] *= self.growth_factor
+        if event.time < self.growth_stop_time:
+            frozen = ~pop.frozen.isnull()
+            pop.loc[frozen, ['x', 'y']] *= self.growth_factor
 
         # update the population in the model
         self.population_view.update(pop)
@@ -163,13 +167,13 @@ class SaveImage:
         plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
         plt.figtext(0, 1, f'\n    stickiness {self.config.stickiness}; '
                     + f'initial_position_radius {self.config.initial_position_radius}; '
-                    + f'step_raduis {self.config.step_radius}; near_radius {self.config.near_radius}; '
+                    + f'step_radius_rate {self.config.step_radius_rate}; near_radius {self.config.near_radius}; '
                     + f'bounding_box_radius {self.config.bounding_box_radius} seed {self.seed}\n'
                     + f'n_frozen {pop.frozen.sum():,.0f}\n'
                     , ha='left', va='top')
         import datetime
         fname = (f'{self.config.dname}/{datetime.datetime.today().strftime("%Y%m%d")}{self.config.stickiness}-'
-                 + f'{self.config.initial_position_radius}-{self.config.step_radius}-'
+                 + f'{self.config.initial_position_radius}-{self.config.step_radius_rate}-'
                  + f'{self.config.near_radius}-{self.config.bounding_box_radius}-{self.seed[-5:]}.png')
         plt.savefig(fname)
         print(f'Visual results saved as {fname}')
@@ -214,8 +218,8 @@ class BoundingBox:
         pop = self.population_view.get(event.index)
         
         # wrap all points into the bounding box
-        pop.x = np.mod(pop.x + self.config.bounding_box_radius,
-                       2*self.config.bounding_box_radius) - self.config.bounding_box_radius
-        pop.y = np.mod(pop.y + self.config.bounding_box_radius,
-                       2*self.config.bounding_box_radius) - self.config.bounding_box_radius
+        pop.x = np.clip(pop.x, -2*self.config.bounding_box_radius,
+                        2*self.config.bounding_box_radius)
+        pop.y = np.clip(pop.y, -2*self.config.bounding_box_radius,
+                        2*self.config.bounding_box_radius)
         self.population_view.update(pop)
