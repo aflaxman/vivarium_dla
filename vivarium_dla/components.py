@@ -10,13 +10,15 @@ class DLA:
             'step_radius': .1,
             'near_radius': 1,
             'n_start_frozen':1,
+            'start_radius':1,
+            'growth_rate':.1,  # percent per day
         }
     }
 
     def setup(self, builder):
         self.config = builder.configuration.dla
+        self.growth_factor = (1 + self.config.growth_rate / 100)**builder.configuration.time.step_size
         self.vivarium_randomness = builder.randomness.get_stream('dla')
-        self.clock = 0
 
         vivarium_seed = self.vivarium_randomness._key() # from https://github.com/ihmeuw/vivarium/blob/95ac55e4f5eb7c098d99fe073b35b73127e7ed0d/src/vivarium/framework/randomness/stream.py#L66
         np_seed = int(hashlib.sha1(vivarium_seed.encode('utf-8')).hexdigest(), 16) % (10 ** 8)  # from https://stackoverflow.com/questions/7585307/how-to-correct-typeerror-unicode-objects-must-be-encoded-before-hashing
@@ -42,12 +44,9 @@ class DLA:
         pop['frozen'] = np.nan
 
         # freeze first simulants in the batch
-        self.start_radius = 0
-        self.growth_rate = 1.001  # TODO: make this configurable
-        self.shift_rate = 0.0
         for i in range(self.config.n_start_frozen):
-            pop.iloc[i, :] = [self.start_radius * np.sin(2*np.pi*i/self.config.n_start_frozen),
-                              self.start_radius * np.cos(2*np.pi*i/self.config.n_start_frozen),
+            pop.iloc[i, :] = [self.config.start_radius * np.sin(2*np.pi*i/self.config.n_start_frozen),
+                              self.config.start_radius * np.cos(2*np.pi*i/self.config.n_start_frozen),
                               0,
                               (i+1)%self.config.n_start_frozen]
         
@@ -55,8 +54,6 @@ class DLA:
         self.population_view.update(pop)
         
     def on_time_step(self, event):
-        self.clock += 1
-        
         pop = self.population_view.get(event.index)
         
         # move the not-frozen
@@ -72,33 +69,19 @@ class DLA:
         to_freeze = to_maybe_freeze[to_freeze == True]
         pop.loc[to_freeze.index, 'frozen'] = to_freeze
 
-        # lift
-        non_frozen = pop.frozen.isnull()
-        pop.loc[non_frozen, 'z'] += .005
+        # print some info for debugging
+        t = pd.concat([pop.loc[to_freeze],
+                         pop.loc[to_freeze.index]
+                        ])
+        if len(t) > 0:
+            print(t)
+                         
 
         # grow
         # TODO: refactor this into a separate component
-        if self.clock*np.log(self.growth_rate) < np.log(self.config.initial_position_radius/10 / (self.start_radius+self.config.step_radius)):
-            frozen = ~pop.frozen.isnull()
-            pop.loc[frozen, ['x', 'y']] *= self.growth_rate
+        frozen = ~pop.frozen.isnull()
+        pop.loc[frozen, ['x', 'y']] *= self.growth_factor
 
-            pop.loc[frozen, 'x'] += self.shift_rate
-
-        elif np.isfinite(self.clock):
-            # shrink
-            #import pdb; pdb.set_trace()
-            std_frozen = pop.loc[~non_frozen, ['x', 'y']].std()
-            shrink_factor = np.exp(-(self.clock*np.log(self.growth_rate) - np.log(self.config.initial_position_radius/10
-                                                                                  / (self.start_radius+self.config.step_radius))))
-            shrink_factor = .5
-            pop.loc[0, 'z'] = pop.loc[non_frozen, 'z'].mean()
-            pop.loc[0, ['x', 'y']] = (0,0)
-            pop.loc[0, 'frozen'] = 0
-            pop.loc[non_frozen, ['x', 'y']] =self.np_random.normal(size=(sum(non_frozen), 2), scale=std_frozen*shrink_factor)
-            self.clock = np.nan
-            
-
-            
         # update the population in the model
         self.population_view.update(pop)
                 

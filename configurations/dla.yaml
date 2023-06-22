@@ -9,15 +9,19 @@ configuration:
   time:
     start:
       year: 2000
+      month: 1
+      day: 1
     end:
-      year: 2001
-    step_size: .1
+      year: 2000
+      month: 10
+      day: 1
+    step_size: .05
   population:
     population_size: 10_000
   dla:
-    stickiness: .1
-    initial_position_radius: 100
-    step_radius: 1
-    near_radius: 1
-    bounding_box_radius: 1000
+    #stickiness: .1
+    #initial_position_radius: 100
+    #step_radius: 1
+    #near_radius: 1
+    #bounding_box_radius: 1000
     dname: /share/scratch/users/abie/t/
