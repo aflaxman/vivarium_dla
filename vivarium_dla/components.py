@@ -185,9 +185,11 @@ class SaveImage:
                     + f'n_frozen {pop.frozen.sum():,.0f}\n'
                     , ha='left', va='top')
         import datetime
-        plt.savefig(f'{self.config.dname}/{datetime.datetime.today().strftime("%Y%m%d")}{self.config.stickiness}-'
-                    + f'{self.config.initial_position_radius}-{self.config.step_radius}-'
-                    + f'{self.config.near_radius}-{self.config.bounding_box_radius}-{self.seed[-5:]}.png')
+        fname = (f'{self.config.dname}/{datetime.datetime.today().strftime("%Y%m%d")}{self.config.stickiness}-'
+                 + f'{self.config.initial_position_radius}-{self.config.step_radius}-'
+                 + f'{self.config.near_radius}-{self.config.bounding_box_radius}-{self.seed[-5:]}.png')
+        plt.savefig(fname)
+        print(f'Visual results saved as {fname}')
 
 class ChaosMonkey:
     name = 'ChaosMonkey'
