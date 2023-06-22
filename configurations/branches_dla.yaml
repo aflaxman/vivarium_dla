@@ -2,13 +2,14 @@ random_seed_count: 2
 
 branches:
   - dla:
-      stickiness: [1]
-      initial_position_radius: [100]
-      step_radius: [1, .1, .01]
-      near_radius: [1.1]
-      bounding_box_radius: [1000]
+      stickiness: [.1, .5, .9]
+      initial_position_radius: [10, 50, 100]
+      step_rate_radius: [1, 5, 10]
+      near_radius: [.1, .5, 1]
+      growth_rate: [0, .2, .4]
+      growth_stop_time: ['2020-03-01', '2020-07-01', '2020-10-01']
     time:
-      step_size: [.01]
+      step_size: [.01, .05, .1]
     population:
-      population_size: [10_000]
+      population_size: [5_000, 10_000, 50_000]
 

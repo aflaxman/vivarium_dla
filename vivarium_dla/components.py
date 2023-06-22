@@ -6,13 +6,13 @@ class DLA:
     configuration_defaults = {
         'dla': {
             'stickiness': 0.9,
-            'initial_position_radius': 100,
-            'step_radius_rate': 10,
+            'initial_position_radius': 50,
+            'step_radius_rate': 5,
             'near_radius': 1,
-            'n_start_frozen':5,
-            'start_radius':1,
+            'n_start_frozen':1,
+            'start_radius':3,
             'growth_rate':.4,  # percent per day
-            'growth_stop_time': '2020-05-01'
+            'growth_stop_time': '2020-07-01'
         }
     }
 
@@ -43,7 +43,7 @@ class DLA:
                                          scale=self.config.initial_position_radius)
         pop['y'] = self.np_random.normal(size=len(simulant_data.index),
                                          scale=self.config.initial_position_radius)
-        pop['z'] = 0.0
+        pop['z'] = self.np_random.uniform(size=(len(simulant_data.index)), low=0, high=25)
         pop['frozen'] = np.nan
 
         # freeze first simulants in the batch
@@ -86,6 +86,9 @@ class DLA:
             frozen = ~pop.frozen.isnull()
             pop.loc[frozen, ['x', 'y']] *= self.growth_factor
 
+        # fall
+        pop.loc[~frozen, 'z'] /= self.growth_factor
+
         # update the population in the model
         self.population_view.update(pop)
                 
@@ -119,6 +122,9 @@ class SaveImage:
 
     def setup(self, builder):
         self.config = builder.configuration.dla
+        self.step_size = builder.configuration.time.step_size
+        self.pop_size = builder.configuration.population.population_size
+        
         self.randomness = builder.randomness.get_stream('save_image')
         self.seed = self.randomness._key() # from https://github.com/ihmeuw/vivarium/blob/95ac55e4f5eb7c098d99fe073b35b73127e7ed0d/src/vivarium/framework/randomness/stream.py#L66
 
@@ -155,7 +161,7 @@ class SaveImage:
                 color = 'b'
             else:
                 color = 'r'
-            plt.plot(xx, yy, '-', alpha=.85, linewidth=1, color=color)
+            plt.plot(xx, yy, '-', alpha=.85, linewidth=1, color='C0')
             
         
         bnds = plt.axis()
@@ -172,9 +178,10 @@ class SaveImage:
                     + f'n_frozen {pop.frozen.sum():,.0f}\n'
                     , ha='left', va='top')
         import datetime
-        fname = (f'{self.config.dname}/{datetime.datetime.today().strftime("%Y%m%d")}{self.config.stickiness}-'
+        fname = (f'{self.config.dname}/{datetime.datetime.today().strftime("%Y%m%d")}-{self.config.stickiness}-'
                  + f'{self.config.initial_position_radius}-{self.config.step_radius_rate}-'
-                 + f'{self.config.near_radius}-{self.config.bounding_box_radius}-{self.seed[-5:]}.png')
+                 + f'{self.config.near_radius}-{self.config.growth_rate}-{self.config.growth_stop_time}-'
+                 + f'{self.pop_size}-{self.step_size}-{self.seed[-5:]}.png')
         plt.savefig(fname)
         print(f'Visual results saved as {fname}')
 

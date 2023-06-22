@@ -15,7 +15,7 @@ configuration:
       year: 2000
       month: 10
       day: 1
-    step_size: .02
+    step_size: .05
   population:
     population_size: 10_000
   dla:
