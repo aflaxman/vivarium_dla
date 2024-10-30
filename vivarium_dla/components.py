@@ -1,7 +1,9 @@
 import numpy as np, pandas as pd, matplotlib.pyplot as plt, sklearn.neighbors
 import hashlib
 
-class DLA:
+from vivarium import Component
+
+class DLA(Component):
     name = 'DLA'
     configuration_defaults = {
         'dla': {
@@ -16,6 +18,10 @@ class DLA:
         }
     }
 
+    @property
+    def columns_created(self):
+        return ['x', 'y', 'z', 'frozen']
+    
     def setup(self, builder):
         self.config = builder.configuration.dla
         self.growth_factor = (1 + self.config.growth_rate / 100)**builder.configuration.time.step_size
@@ -28,11 +34,6 @@ class DLA:
         self.np_random = np.random.RandomState(seed=np_seed)
         self.freeze_randomness = builder.randomness.get_stream('dla_freeze')
         
-        columns = ['x', 'y', 'z', 'frozen']
-        self.population_view = builder.population.get_view(columns)
-        builder.population.initializes_simulants(self.on_initialize_simulants, creates_columns=columns)
-        
-        builder.event.register_listener('time_step', self.on_time_step)
         
     def on_initialize_simulants(self, simulant_data):
         """Start new simulants at random location, but 
@@ -76,8 +77,8 @@ class DLA:
         t = pd.concat([pop.loc[to_freeze],
                          pop.loc[to_freeze.index]
                         ])
-        if len(t) > 0:
-            print(t)
+        #if len(t) > 0:
+        #    print(t)
                          
 
         # grow
@@ -112,13 +113,17 @@ class DLA:
         return pd.Series(map(lambda x:frozen.index[x[0]], # HACK: get the index of the first frozen node close to this one
                              index_near), index=to_freeze)
 
-class SaveImage:
+class SaveImage(Component):
     name = 'SaveImage'
     configuration_defaults = {
         'dla': {
             'dname': '/tmp/',
         }
     }
+
+    @property
+    def columns_required(self):
+        return ['x', 'y', 'z', 'frozen']
 
     def setup(self, builder):
         self.config = builder.configuration.dla
@@ -127,11 +132,6 @@ class SaveImage:
         
         self.randomness = builder.randomness.get_stream('save_image')
         self.seed = self.randomness._key() # from https://github.com/ihmeuw/vivarium/blob/95ac55e4f5eb7c098d99fe073b35b73127e7ed0d/src/vivarium/framework/randomness/stream.py#L66
-
-        columns = ['x', 'y', 'z', 'frozen']
-        self.population_view = builder.population.get_view(columns)
-
-        builder.event.register_listener('simulation_end', self.on_simulation_end)
 
     def on_simulation_end(self, event):
         pop = self.population_view.get(event.index)
@@ -185,6 +185,8 @@ class SaveImage:
         plt.savefig(fname)
         print(f'Visual results saved as {fname}')
 
+        pop.to_csv(fname.replace('.png', '.csv.bz2'))
+
 class ChaosMonkey:
     name = 'ChaosMonkey'
     configuration_defaults = {
@@ -208,7 +210,7 @@ class ChaosMonkey:
                 assert 0, 'chaos monkey strikes'
 
 
-class BoundingBox:
+class BoundingBox(Component):
     name = 'BoundingBox'
     configuration_defaults = {
         'dla': {
@@ -216,12 +218,14 @@ class BoundingBox:
         }
     }
 
+    @property
+    def columns_required(self):
+        return ['x', 'y']
+    
     def setup(self, builder):
         self.config = builder.configuration.dla
-        self.population_view = builder.population.get_view(['x', 'y'])
-        builder.event.register_listener('time_step__prepare', self.on_time_step__prepare)
         
-    def on_time_step__prepare(self, event):
+    def on_time_step_prepare(self, event):
         pop = self.population_view.get(event.index)
         
         # wrap all points into the bounding box
