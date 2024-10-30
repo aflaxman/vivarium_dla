@@ -15,13 +15,15 @@ configuration:
       year: 2000
       month: 10
       day: 1
-    step_size: .05
+    step_size: .1
   population:
-    population_size: 10_000
+    population_size: 50_000
   dla:
-    #stickiness: .1
-    #initial_position_radius: 100
-    #step_radius: 1
-    #near_radius: 1
-    #bounding_box_radius: 1000
+    stickiness: .9
+    initial_position_radius: 100
+    step_radius: 5
+    near_radius: 1
+    growth_rate: .2
+    growth_stop_time: '2020-10-01'
+    
     dname: /share/scratch/users/abie/t/
