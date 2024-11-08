@@ -1,6 +1,7 @@
 components:
   vivarium_dla.components:
     - DLA()
+  # - SaveFlipBook()
     - SaveImage()
     - BoundingBox()
 #    - ChaosMonkey()

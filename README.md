@@ -12,11 +12,11 @@ Witten, T.A. and Sander, L. M. and published by them in 1981, titled: "Diffusion
 E.G.
 
 ```
-simulate run configurations/dla.yaml -v --pdb
+time simulate run configurations/dla.yaml --pdb
 ```
 
 or
 
 ```
-psimulate run --pdb --project proj_simscience configurations/dla.yaml configurations/branches_dla.yaml
+time psimulate run --pdb --project proj_simscience configurations/dla.yaml configurations/branches_dla.yaml -o /mnt/share/homes/abie/vivarium_results/
 ```
