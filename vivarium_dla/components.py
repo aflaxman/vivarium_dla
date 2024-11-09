@@ -44,16 +44,17 @@ class DLA(Component):
                                          scale=self.config.initial_position_radius)
         pop['y'] = self.np_random.normal(size=len(simulant_data.index),
                                          scale=self.config.initial_position_radius)
-        pop['z'] = self.np_random.uniform(size=(len(simulant_data.index)), low=0, high=self.config.initial_position_radius/50)
+        pop['z'] = self.np_random.uniform(size=(len(simulant_data.index)), low=0, high=self.config.initial_position_radius/10)
         pop['frozen'] = np.nan
 
         # freeze first simulants in the batch
+        self.shift_xyz = np.array([self.config.initial_position_radius, 0, 0])
         for i in range(self.config.n_start_frozen):
-            pop.iloc[i, :] = [self.config.initial_position_radius + self.config.start_radius * np.sin(2*np.pi*i/self.config.n_start_frozen),
+            pop.iloc[i, :] = [self.config.start_radius * np.sin(2*np.pi*i/self.config.n_start_frozen),
                               self.config.start_radius * np.cos(2*np.pi*i/self.config.n_start_frozen),
-                              2,
+                              0,
                               (i+1)%self.config.n_start_frozen]
-        
+        pop.iloc[:self.config.n_start_frozen, :3] += self.shift_xyz
         # update the population in the model
         self.population_view.update(pop)
         
@@ -76,11 +77,11 @@ class DLA(Component):
         freeze_parent_index = to_maybe_freeze[to_freeze == True]
         pop.loc[freeze_parent_index.index, 'frozen'] = freeze_parent_index
 
-        # grow
-        # TODO: refactor this into a separate component
-        if event.time < self.growth_stop_time:
-            frozen = ~pop.frozen.isnull()
-            pop.loc[frozen, ['x', 'y']] *= self.growth_factor
+        # # grow
+        # # TODO: refactor this into a separate component
+        # if event.time < self.growth_stop_time:
+        #     frozen = ~pop.frozen.isnull()
+        #     pop.loc[frozen, ['x', 'y', 'z']] = (pop.loc[frozen, ['x', 'y', 'z']] - self.shift_xyz) * (1+self.growth_factor) + self.shift_xyz
 
         # update the population in the model
         self.population_view.update(pop)
@@ -127,57 +128,8 @@ class SaveImage(Component):
 
     def on_simulation_end(self, event):
         pop = self.population_view.get(event.index)
-
-        plt.figure(figsize=(20,20))
-
-        frozen = pop[~pop.frozen.isnull()].loc[:, ['x', 'y', 'z']]
-        #plt.plot(frozen.x, frozen.y, '.')
-        plt.plot(pop.iloc[:self.config.n_start_frozen].x, pop.iloc[:self.config.n_start_frozen].y, 'o')
-        
-        tree = sklearn.neighbors.KDTree(frozen.values, leaf_size=2)
-
-        nearest = tree.query_radius(frozen.values, r=self.config.near_radius, count_only=False)
-        xx, yy = [], []
-        #for i, N_i in enumerate(nearest):
-        #    for j in N_i[:2]:
-        #        xx += [frozen.iloc[i, 0], frozen.iloc[j, 0], np.nan]
-        #        yy += [frozen.iloc[i, 1], frozen.iloc[j, 1], np.nan]
-        #plt.plot(xx, yy, 'k-', alpha=.85, linewidth=2)
-
-        mean_frozen_z = frozen.z.mean()
-        for i in pop[~pop.frozen.isnull()].index:
-            j = pop.loc[i, 'frozen']
-            xx = [pop.x[i], pop.x[j]]
-            yy = [pop.y[i], pop.y[j]]
-            if pop.z[i] > mean_frozen_z:
-                color = 'b'
-            else:
-                color = 'r'
-            plt.plot(xx, yy, '-', alpha=.85, linewidth=1, color='C0')
-            
-        
-        bnds = plt.axis()
-        max_bnd = np.max(bnds)
-        plt.plot(pop.x, pop.y, 'k,')
-        plt.axis(xmin=-max_bnd, xmax=max_bnd, ymin=-max_bnd, ymax=max_bnd)
-
-        plt.axis('off')
-        plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
-        plt.figtext(0, 1, f'\n    stickiness {self.config.stickiness}; '
-                    + f'initial_position_radius {self.config.initial_position_radius}; '
-                    + f'step_radius_rate {self.config.step_radius_rate}; near_radius {self.config.near_radius}; '
-                    + f'bounding_box_radius {self.config.bounding_box_radius} seed {self.seed}\n'
-                    + f'n_frozen {pop.frozen.isnull().sum():,.0f}\n'
-                    , ha='left', va='top')
-        import datetime
-        fname = (f'{self.config.dname}/{datetime.datetime.today().strftime("%Y%m%d")}-{self.config.stickiness}-'
-                 + f'{self.config.initial_position_radius}-{self.config.step_radius_rate}-'
-                 + f'{self.config.near_radius}-{self.config.growth_rate}-{self.config.growth_stop_time}-'
-                 + f'{self.pop_size}-{self.step_size}-{self.seed[-5:]}.png')
-        plt.savefig(fname)
-        print(f'Visual results saved as {fname}')
-
-        pop.to_csv(fname.replace('.png', '.csv.bz2'))
+        fname = (f'{self.config.dname}/{self.seed}.csv.bz2')
+        pop.to_csv(fname)
 
 class ChaosMonkey:
     name = 'ChaosMonkey'
@@ -212,7 +164,7 @@ class BoundingBox(Component):
 
     @property
     def columns_required(self):
-        return ['x', 'y']
+        return ['x', 'y', 'z']
     
     def setup(self, builder):
         self.config = builder.configuration.dla
@@ -224,6 +176,8 @@ class BoundingBox(Component):
         pop.x = np.clip(pop.x, -2*self.config.bounding_box_radius,
                         2*self.config.bounding_box_radius)
         pop.y = np.clip(pop.y, -2*self.config.bounding_box_radius,
+                        2*self.config.bounding_box_radius)
+        pop.z = np.clip(pop.z, -2*self.config.bounding_box_radius,
                         2*self.config.bounding_box_radius)
         self.population_view.update(pop)
 

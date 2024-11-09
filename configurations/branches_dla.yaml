@@ -1,15 +1,2 @@
 random_seed_count: 5
 
-branches:
-  - dla:
-      stickiness: [.5]
-      initial_position_radius: [100]
-      step_rate_radius: [5]
-      near_radius: [1]
-      growth_rate: [.2]
-      growth_stop_time: ['2020-10-01']
-    time:
-      step_size: [.1]
-    population:
-      population_size: [5_0000]
-
