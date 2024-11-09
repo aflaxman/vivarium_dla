@@ -148,7 +148,7 @@ def match_A_leaves(dfa: pd.DataFrame, dfb: pd.DataFrame) -> nx.Graph:
     for i, j in enumerate(indices):
         node_a = int(leaves_a[i])
         node_b = int(nodes_b[j])
-        if distances[i] < 1:        # TODO: only include edges within a certain critical radius
+        if distances[i] < 5:        # TODO: only include edges within a certain critical radius
             connecting_graph.add_edge(('a',node_a), ('b',node_b))
 
     return connecting_graph
@@ -173,7 +173,17 @@ def pruned_network(dfa, dfb, M):
     # reachable by a directed path from node ('a', 0)
     
     reachable_nodes = nx.descendants(G, ('a', 0))
-    return G.subgraph(reachable_nodes)
+    # todo: reverse edges and get ancestors of ('b', 0)
+    G_sub1 = G.subgraph(reachable_nodes)
+    if ('b', 0) not in G_sub1.nodes():
+        return G_sub1
+    else:
+        reversed_G_sub1 = G_sub1.reverse()
+        reachable_nodes = nx.descendants(reversed_G_sub1, ('b', 0))
+        G_sub2 = G_sub1.subgraph(reachable_nodes)
+        
+        return G_sub2
+
 
 
 
@@ -270,7 +280,7 @@ def to_voxels(G, dfa, dfb):
     """
 
     points = interpolate_edges(G, dfa, dfb)
-    hist, (xedges, yedges, zedges) = np.histogramdd(points, bins=(500, 500, 800))
+    hist, (xedges, yedges, zedges) = np.histogramdd(points, bins=(500, 500, 50))
 
     return hist
 

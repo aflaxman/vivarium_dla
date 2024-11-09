@@ -76,12 +76,12 @@ class DLA(Component):
                       < self.config.stickiness)
         freeze_parent_index = to_maybe_freeze[to_freeze == True]
         pop.loc[freeze_parent_index.index, 'frozen'] = freeze_parent_index
-
-        # # grow
-        # # TODO: refactor this into a separate component
-        # if event.time < self.growth_stop_time:
-        #     frozen = ~pop.frozen.isnull()
-        #     pop.loc[frozen, ['x', 'y', 'z']] = (pop.loc[frozen, ['x', 'y', 'z']] - self.shift_xyz) * (1+self.growth_factor) + self.shift_xyz
+ 
+        # grow
+        # TODO: refactor this into a separate component
+        if event.time < self.growth_stop_time:
+            frozen = ~pop.frozen.isnull()
+            pop.loc[frozen, ['x', 'y', 'z']] = (pop.loc[frozen, ['x', 'y', 'z']] - self.shift_xyz) * self.growth_factor + self.shift_xyz
 
         # update the population in the model
         self.population_view.update(pop)
