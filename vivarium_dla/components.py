@@ -106,6 +106,43 @@ class DLA(Component):
         return pd.Series(map(lambda x:frozen.index[x[0]], # HACK: get the index of the first frozen node close to this one
                              index_near), index=to_freeze)
 
+class BoundingBox(Component):
+    name = 'BoundingBox'
+    configuration_defaults = {
+        'dla': {
+            'bounding_box_radius': 100,
+        }
+    }
+
+    @property
+    def columns_required(self):
+        return ['x', 'y', 'z']
+    
+    def setup(self, builder):
+        self.config = builder.configuration.dla
+        self.faz_center_xyz = np.array([-self.config.bounding_box_radius, 0, 0])
+        
+    def on_time_step_prepare(self, event):
+        pop = self.population_view.get(event.index)
+
+        # move all points out of foveal avascular zone
+        dist_xzy = np.linalg.norm(pop.loc[:, ['x', 'z', 'y']] - self.faz_center_xyz, axis=1)
+        zone_radius = self.config.bounding_box_radius/10
+        in_zone = np.where(dist_xzy <= zone_radius)
+        shifted_scaled_xyz = (pop.loc[in_zone, ['x', 'y', 'z']] - self.faz_center_xyz) / zone_radius 
+        inverted_xyz = 1/shifted_scaled_xyz * zone_radius + self.faz_center_xyz
+        pop.loc[in_zone, ['x', 'y', 'z']] = inverted_xyz
+        
+        # squeeze all points into the bounding box
+        pop.x = np.clip(pop.x, -2*self.config.bounding_box_radius,
+                        2*self.config.bounding_box_radius)
+        pop.y = np.clip(pop.y, -2*self.config.bounding_box_radius,
+                        2*self.config.bounding_box_radius)
+        pop.z = np.clip(pop.z, -2*self.config.bounding_box_radius,
+                        2*self.config.bounding_box_radius)
+        
+        self.population_view.update(pop)
+
 class SaveImage(Component):
     name = 'SaveImage'
     configuration_defaults = {
@@ -153,33 +190,6 @@ class ChaosMonkey:
             if np.random.random() < .5:
                 assert 0, 'chaos monkey strikes'
 
-
-class BoundingBox(Component):
-    name = 'BoundingBox'
-    configuration_defaults = {
-        'dla': {
-            'bounding_box_radius': 100,
-        }
-    }
-
-    @property
-    def columns_required(self):
-        return ['x', 'y', 'z']
-    
-    def setup(self, builder):
-        self.config = builder.configuration.dla
-        
-    def on_time_step_prepare(self, event):
-        pop = self.population_view.get(event.index)
-        
-        # wrap all points into the bounding box
-        pop.x = np.clip(pop.x, -2*self.config.bounding_box_radius,
-                        2*self.config.bounding_box_radius)
-        pop.y = np.clip(pop.y, -2*self.config.bounding_box_radius,
-                        2*self.config.bounding_box_radius)
-        pop.z = np.clip(pop.z, -2*self.config.bounding_box_radius,
-                        2*self.config.bounding_box_radius)
-        self.population_view.update(pop)
 
 import numpy as np
 import pandas as pd

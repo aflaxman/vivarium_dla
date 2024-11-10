@@ -25,6 +25,6 @@ configuration:
     step_radius: .5
     near_radius: 4
     growth_rate: .2
-    growth_stop_time: '2020-01-02'
+    growth_stop_time: '2020-02-02'
     
     dname: /share/scratch/users/abie/t/
