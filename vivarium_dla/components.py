@@ -90,9 +90,17 @@ class DLA(Component):
                       < self.config.stickiness) & (~in_faz)
         freeze_parent_index = to_maybe_freeze[to_freeze == True]
         pop.loc[freeze_parent_index.index, 'frozen'] = freeze_parent_index
- 
+
+        # ideas to make it look more like expected
+        ## prefer to extend a vessel, at least at first
+        ## select just one or two nodes to freeze onto each vessel (track connected components)
+        ## cap the out-degree of nodes
+        ## make faz out of particles, so it is easier to grow it also
+        ## switch back to a growth model that expands particles, and introduce new particles as you grow
+        
         # grow
         if event.time < self.growth_stop_time:
+#            import pdb; pdb.set_trace()
             self.near_radius = self.near_radius * self.growth_factor
 
         # update the population in the model
