@@ -116,22 +116,25 @@ class BoundingBox(Component):
 
     @property
     def columns_required(self):
-        return ['x', 'y', 'z']
+        return ['x', 'y', 'z', 'frozen']
     
     def setup(self, builder):
         self.config = builder.configuration.dla
-        self.faz_center_xyz = np.array([-self.config.bounding_box_radius, 0, 0])
+        self.faz_center_xy = np.array([-self.config.bounding_box_radius, 0])
+        self.faz_radius = self.config.bounding_box_radius/5
         
-    def on_time_step_prepare(self, event):
+    def on_time_step_cleanup(self, event):
         pop = self.population_view.get(event.index)
 
-        # move all points out of foveal avascular zone
-        dist_xzy = np.linalg.norm(pop.loc[:, ['x', 'z', 'y']] - self.faz_center_xyz, axis=1)
-        zone_radius = self.config.bounding_box_radius/10
-        in_zone = np.where(dist_xzy <= zone_radius)
-        shifted_scaled_xyz = (pop.loc[in_zone, ['x', 'y', 'z']] - self.faz_center_xyz) / zone_radius 
-        inverted_xyz = 1/shifted_scaled_xyz * zone_radius + self.faz_center_xyz
-        pop.loc[in_zone, ['x', 'y', 'z']] = inverted_xyz
+        # move non-frozen points out of foveal avascular zone
+        def dist2(u, v):
+            return np.sum((u - v)**2, axis=1)
+        dist_xy2 = dist2(pop.loc[:, ['x', 'y']], self.faz_center_xy)
+        in_zone = (dist_xy2 <= self.faz_radius**2)
+        # in_zone_not_frozen = in_zone #& pop.frozen.isnull()
+        shifted_scaled_xy = (pop.loc[in_zone, ['x', 'y']] - self.faz_center_xy) / self.faz_radius 
+        inverted_xy = shifted_scaled_xy.div(np.sqrt(dist2(shifted_scaled_xy, 0)), axis=0) * self.faz_radius + self.faz_center_xy
+        pop.loc[in_zone, ['x', 'y']] = inverted_xy
         
         # squeeze all points into the bounding box
         pop.x = np.clip(pop.x, -2*self.config.bounding_box_radius,
