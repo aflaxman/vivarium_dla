@@ -24,10 +24,16 @@ class DLA(Component):
     
     def setup(self, builder):
         self.config = builder.configuration.dla
-        self.growth_factor = (1 + self.config.growth_rate / 100)**builder.configuration.time.step_size
+        
+        self.growth_factor = (1 - self.config.growth_rate / 100)**builder.configuration.time.step_size
         self.growth_stop_time = pd.Timestamp(self.config.growth_stop_time)
+        self.near_radius = self.config.near_radius
+
         self.step_radius = self.config.step_radius_rate * builder.configuration.time.step_size
         self.vivarium_randomness = builder.randomness.get_stream('dla')
+
+        self.faz_center_xy = np.array([-self.config.initial_position_radius*0, 0])
+        self.faz_radius = self.config.initial_position_radius/10
 
         vivarium_seed = self.vivarium_randomness._key() # from https://github.com/ihmeuw/vivarium/blob/95ac55e4f5eb7c098d99fe073b35b73127e7ed0d/src/vivarium/framework/randomness/stream.py#L66
         np_seed = int(hashlib.sha1(vivarium_seed.encode('utf-8')).hexdigest(), 16) % (10 ** 8)  # from https://stackoverflow.com/questions/7585307/how-to-correct-typeerror-unicode-objects-must-be-encoded-before-hashing
@@ -72,16 +78,22 @@ class DLA(Component):
         
         # freeze
         to_maybe_freeze = self.near_frozen(pop)  # TODO: make it clearer that this series includes the index of the node that this node froze to
+
+        # don't freeze points in foveal avascular zone
+        def dist2(u, v):
+            return np.sum((u - v)**2, axis=1)
+        dist_xy2 = dist2(pop.loc[to_maybe_freeze.index, ['x', 'y']], self.faz_center_xy)
+        in_faz = (dist_xy2 <= self.faz_radius**2)
+
+        # actually do the freezing
         to_freeze =  (self.freeze_randomness.get_draw(to_maybe_freeze.index)
-                      < self.config.stickiness)
+                      < self.config.stickiness) & (~in_faz)
         freeze_parent_index = to_maybe_freeze[to_freeze == True]
         pop.loc[freeze_parent_index.index, 'frozen'] = freeze_parent_index
  
         # grow
-        # TODO: refactor this into a separate component
         if event.time < self.growth_stop_time:
-            frozen = ~pop.frozen.isnull()
-            pop.loc[frozen, ['x', 'y', 'z']] = (pop.loc[frozen, ['x', 'y', 'z']] - self.shift_xyz) * self.growth_factor + self.shift_xyz
+            self.near_radius = self.near_radius * self.growth_factor
 
         # update the population in the model
         self.population_view.update(pop)
@@ -97,11 +109,11 @@ class DLA(Component):
         
         tree = sklearn.neighbors.KDTree(X, leaf_size=2)
         
-        num_near = tree.query_radius(not_frozen.values, r=self.config.near_radius, count_only=True)
+        num_near = tree.query_radius(not_frozen.values, r=self.near_radius, count_only=True)
         to_freeze = not_frozen[(num_near > 0)].index
         if len(to_freeze) == 0:
             return pd.Series(dtype='float64')
-        index_near = tree.query_radius(not_frozen.loc[to_freeze].values, r=self.config.near_radius, count_only=False)
+        index_near = tree.query_radius(not_frozen.loc[to_freeze].values, r=self.near_radius, count_only=False)
         
         return pd.Series(map(lambda x:frozen.index[x[0]], # HACK: get the index of the first frozen node close to this one
                              index_near), index=to_freeze)
@@ -120,22 +132,10 @@ class BoundingBox(Component):
     
     def setup(self, builder):
         self.config = builder.configuration.dla
-        self.faz_center_xy = np.array([-self.config.bounding_box_radius, 0])
-        self.faz_radius = self.config.bounding_box_radius/5
         
     def on_time_step_cleanup(self, event):
         pop = self.population_view.get(event.index)
 
-        # move non-frozen points out of foveal avascular zone
-        def dist2(u, v):
-            return np.sum((u - v)**2, axis=1)
-        dist_xy2 = dist2(pop.loc[:, ['x', 'y']], self.faz_center_xy)
-        in_zone = (dist_xy2 <= self.faz_radius**2)
-        # in_zone_not_frozen = in_zone #& pop.frozen.isnull()
-        shifted_scaled_xy = (pop.loc[in_zone, ['x', 'y']] - self.faz_center_xy) / self.faz_radius 
-        inverted_xy = shifted_scaled_xy.div(np.sqrt(dist2(shifted_scaled_xy, 0)), axis=0) * self.faz_radius + self.faz_center_xy
-        pop.loc[in_zone, ['x', 'y']] = inverted_xy
-        
         # squeeze all points into the bounding box
         pop.x = np.clip(pop.x, -2*self.config.bounding_box_radius,
                         2*self.config.bounding_box_radius)

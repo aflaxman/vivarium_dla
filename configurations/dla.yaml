@@ -23,7 +23,7 @@ configuration:
     stickiness: .5
     initial_position_radius: 100
     step_radius: .5
-    near_radius: 4
+    near_radius: 10
     growth_rate: .2
     growth_stop_time: '2020-02-02'
     
