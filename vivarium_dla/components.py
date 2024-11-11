@@ -20,7 +20,7 @@ class DLA(Component):
 
     @property
     def columns_created(self):
-        return ['x', 'y', 'z', 'frozen']
+        return ['x', 'y', 'z', 'frozen', 'depth']
     
     def setup(self, builder):
         self.config = builder.configuration.dla
@@ -52,6 +52,7 @@ class DLA(Component):
                                          scale=self.config.initial_position_radius)
         pop['z'] = self.np_random.uniform(size=(len(simulant_data.index)), low=0, high=self.config.initial_position_radius/10)
         pop['frozen'] = np.nan
+        pop['depth'] = 0
 
         # freeze first simulants in the batch
         self.shift_xyz = np.array([self.config.initial_position_radius, 0, 0])
@@ -59,7 +60,7 @@ class DLA(Component):
             pop.iloc[i, :] = [self.config.start_radius * np.sin(2*np.pi*i/self.config.n_start_frozen),
                               self.config.start_radius * np.cos(2*np.pi*i/self.config.n_start_frozen),
                               0,
-                              (i+1)%self.config.n_start_frozen]
+                              (i+1)%self.config.n_start_frozen, 1]
         pop.iloc[:self.config.n_start_frozen, :3] += self.shift_xyz
         # update the population in the model
         self.population_view.update(pop)
@@ -80,16 +81,22 @@ class DLA(Component):
         to_maybe_freeze = self.near_frozen(pop)  # TODO: make it clearer that this series includes the index of the node that this node froze to
 
         # don't freeze points in foveal avascular zone
+        # TODO: refactor this to be a special frozen component
         def dist2(u, v):
             return np.sum((u - v)**2, axis=1)
         dist_xy2 = dist2(pop.loc[to_maybe_freeze.index, ['x', 'y']], self.faz_center_xy)
         in_faz = (dist_xy2 <= self.faz_radius**2)
 
+        parent_depth = pop.loc[to_maybe_freeze, 'depth']
+        parent_depth.index = to_maybe_freeze.index
+        
         # actually do the freezing
         to_freeze =  (self.freeze_randomness.get_draw(to_maybe_freeze.index)
-                      < self.config.stickiness) & (~in_faz)
+                      < self.config.stickiness**parent_depth) & (~in_faz)
         freeze_parent_index = to_maybe_freeze[to_freeze == True]
+
         pop.loc[freeze_parent_index.index, 'frozen'] = freeze_parent_index
+        pop.loc[freeze_parent_index.index, 'depth'] = parent_depth.loc[freeze_parent_index.index]+1
 
         # ideas to make it look more like expected
         ## prefer to extend a vessel, at least at first
@@ -164,7 +171,7 @@ class SaveImage(Component):
 
     @property
     def columns_required(self):
-        return ['x', 'y', 'z', 'frozen']
+        return ['x', 'y', 'z', 'frozen', 'depth']
 
     def setup(self, builder):
         self.config = builder.configuration.dla

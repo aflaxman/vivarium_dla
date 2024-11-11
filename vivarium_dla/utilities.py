@@ -202,7 +202,7 @@ def plot_vascular_network(G, dfa, dfb):
             xx = [dfb.x[i], dfb.x[j]]
             yy = [dfb.y[i], dfb.y[j]]
             color = color_b
-            linewidth=4
+            linewidth=1
         else:
             xx = [dfa.x[i], dfb.x[j]]
             yy = [dfa.y[i], dfb.y[j]]

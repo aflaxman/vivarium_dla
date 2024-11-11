@@ -20,7 +20,7 @@ configuration:
   population:
     population_size: 5_000
   dla:
-    stickiness: .5
+    stickiness: .9
     initial_position_radius: 100
     step_radius: .5
     near_radius: 10
