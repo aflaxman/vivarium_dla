@@ -32,8 +32,10 @@ class DLA(Component):
         self.step_radius = self.config.step_radius_rate * builder.configuration.time.step_size
         self.vivarium_randomness = builder.randomness.get_stream('dla')
 
-        self.faz_center_xy = np.array([-self.config.initial_position_radius*0, 0])
+        self.faz_center_xy = np.array([-self.config.initial_position_radius*.5, 0])
+        self.disc_center_xy = np.array([self.config.initial_position_radius*.5, 0])
         self.faz_radius = self.config.initial_position_radius/10
+        self.disc_radius = self.config.initial_position_radius/10
 
         vivarium_seed = self.vivarium_randomness._key() # from https://github.com/ihmeuw/vivarium/blob/95ac55e4f5eb7c098d99fe073b35b73127e7ed0d/src/vivarium/framework/randomness/stream.py#L66
         np_seed = int(hashlib.sha1(vivarium_seed.encode('utf-8')).hexdigest(), 16) % (10 ** 8)  # from https://stackoverflow.com/questions/7585307/how-to-correct-typeerror-unicode-objects-must-be-encoded-before-hashing
@@ -46,6 +48,8 @@ class DLA(Component):
         make sure there is something frozen at the origin
         """
         pop = pd.DataFrame(index=simulant_data.index)
+
+        # start with random initial positions for all points
         pop['x'] = self.np_random.normal(size=len(simulant_data.index),
                                          scale=self.config.initial_position_radius)
         pop['y'] = self.np_random.normal(size=len(simulant_data.index),
@@ -55,13 +59,24 @@ class DLA(Component):
         pop['depth'] = 0
 
         # freeze first simulants in the batch
-        self.shift_xyz = np.array([self.config.initial_position_radius, 0, 0])
-        for i in range(self.config.n_start_frozen):
+        N = self.config.n_start_frozen
+        r = self.config.near_radius
+        for i in range(N):
             pop.iloc[i, :] = [self.config.start_radius * np.sin(2*np.pi*i/self.config.n_start_frozen),
                               self.config.start_radius * np.cos(2*np.pi*i/self.config.n_start_frozen),
                               0,
-                              (i+1)%self.config.n_start_frozen, 1]
-        pop.iloc[:self.config.n_start_frozen, :3] += self.shift_xyz
+                              0, # parent is zero
+                              1, # depth is 1
+            ]
+            pop.iloc[i+N, :] = [
+                2*r*self.config.start_radius * np.sin(2*np.pi*i/self.config.n_start_frozen),
+                2*r*self.config.start_radius * np.cos(2*np.pi*i/self.config.n_start_frozen),
+                0,
+                i, # parent is inner val
+                1, # depth is 1
+            ]
+        pop.iloc[:(2*self.config.n_start_frozen), :2] += self.disc_center_xy
+        
         # update the population in the model
         self.population_view.update(pop)
         
@@ -86,17 +101,19 @@ class DLA(Component):
             return np.sum((u - v)**2, axis=1)
         dist_xy2 = dist2(pop.loc[to_maybe_freeze.index, ['x', 'y']], self.faz_center_xy)
         in_faz = (dist_xy2 <= self.faz_radius**2)
+        dist_xy2 = dist2(pop.loc[to_maybe_freeze.index, ['x', 'y']], self.disc_center_xy)
+        in_disc = (dist_xy2 <= self.disc_radius**2)
 
         parent_depth = pop.loc[to_maybe_freeze, 'depth']
         parent_depth.index = to_maybe_freeze.index
         
         # actually do the freezing
         to_freeze =  (self.freeze_randomness.get_draw(to_maybe_freeze.index)
-                      < self.config.stickiness**parent_depth) & (~in_faz)
+                      < self.config.stickiness*(1+.1)**parent_depth) & (~in_faz & ~in_disc)
         freeze_parent_index = to_maybe_freeze[to_freeze == True]
 
         pop.loc[freeze_parent_index.index, 'frozen'] = freeze_parent_index
-        pop.loc[freeze_parent_index.index, 'depth'] = parent_depth.loc[freeze_parent_index.index]+1
+        pop.loc[freeze_parent_index.index, 'depth'] = parent_depth.loc[freeze_parent_index.index] + 1
 
         # ideas to make it look more like expected
         ## prefer to extend a vessel, at least at first
@@ -104,6 +121,7 @@ class DLA(Component):
         ## cap the out-degree of nodes
         ## make faz out of particles, so it is easier to grow it also
         ## switch back to a growth model that expands particles, and introduce new particles as you grow
+        ## start with some smooth, large vessels, and use DLA only for capilaries
         
         # grow
         if event.time < self.growth_stop_time:

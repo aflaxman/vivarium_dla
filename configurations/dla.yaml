@@ -20,11 +20,11 @@ configuration:
   population:
     population_size: 5_000
   dla:
-    stickiness: .9
+    stickiness: .1
     initial_position_radius: 100
     step_radius: .5
-    near_radius: 10
-    growth_rate: 15
+    near_radius: 5.5
+    growth_rate: .15
     growth_stop_time: 2020-01-01
     
     dname: /share/scratch/users/abie/t/
